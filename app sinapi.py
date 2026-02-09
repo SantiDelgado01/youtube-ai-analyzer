@@ -7,7 +7,7 @@ import io
 # 1. CONFIGURACIÓN DE PÁGINA
 st.set_page_config(page_title="Audience Intelligence Pro", page_icon="💰", layout="centered")
 
-# 2. CSS DE ALTO NIVEL (DARK PREMIUM)
+# 2. CSS DE ALTO NIVEL (MEJORADO PARA LECTURA)
 st.markdown("""
     <style>
     .stApp { background: radial-gradient(circle at top, #1e2630 0%, #0e1117 100%); }
@@ -23,13 +23,26 @@ st.markdown("""
         border-radius: 12px !important;
     }
 
+    /* BOTÓN OPTIMIZADO PARA MÁXIMA LEGIBILIDAD */
     .stButton>button {
-        width: 100%; border-radius: 15px !important; height: 3.5em;
+        width: 100%; 
+        border-radius: 15px !important; 
+        height: 4em;
         background: linear-gradient(90deg, #00c6ff 0%, #0072ff 100%) !important;
-        color: white !important; font-weight: bold !important; border: none !important;
-        box-shadow: 0px 4px 15px rgba(0, 114, 255, 0.3); transition: 0.3s;
+        color: #ffffff !important; /* Blanco puro */
+        font-size: 18px !important; /* Más grande */
+        font-weight: 700 !important; 
+        text-transform: uppercase; /* Mayúsculas para impacto */
+        letter-spacing: 1.5px !important; /* Espaciado profesional */
+        border: none !important;
+        box-shadow: 0px 4px 15px rgba(0, 114, 255, 0.4); 
+        transition: 0.3s;
     }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0px 6px 20px rgba(0, 114, 255, 0.5); }
+    .stButton>button:hover { 
+        transform: translateY(-2px); 
+        box-shadow: 0px 8px 25px rgba(0, 114, 255, 0.6); 
+        color: #ffffff !important;
+    }
 
     div[data-testid="stMetric"] {
         background: rgba(255, 255, 255, 0.03) !important;
@@ -63,29 +76,34 @@ def to_excel_pro(df, leads, dudas):
     return output.getvalue()
 
 # 5. INTERFAZ
-st.markdown("<h1>💎 Audience Intelligence Business</h1>", unsafe_allow_html=True)
-st.markdown("<p>Transforma comentarios en clientes y contenido viral</p>", unsafe_allow_html=True)
+st.markdown("<h1>💎 Audience Intelligence</h1>", unsafe_allow_html=True)
+st.markdown("<p>Encuentra leads y optimiza contenido con IA</p>", unsafe_allow_html=True)
 
 with st.container():
-    api_key_sec = st.secrets.get("YOUTUBE_API_KEY", "")
-    api_key = st.text_input("🔑 Google Cloud API Key", value=api_key_sec, type="password")
-    video_url = st.text_input("🔗 Enlace del Video", placeholder="Pega el link aquí...")
+    key_secret = st.secrets.get("YOUTUBE_API_KEY", "")
+    api_key = st.text_input("🔑 Google Cloud API Key", value=key_secret, type="password")
+    video_url = st.text_input("🔗 Enlace del Video", placeholder="https://www.youtube.com/watch?v=...")
     max_com = st.select_slider("⚡ Profundidad del Análisis", options=[50, 100, 250, 500], value=100)
-    btn = st.button("AUDITAR CANAL Y BUSCAR CLIENTES")
+    
+    st.write("")
+    # El botón ahora será súper legible
+    btn = st.button("INICIAR AUDITORÍA ESTRATÉGICA")
 
+st.divider()
+
+# 6. PROCESAMIENTO
 if btn:
     if not api_key or not video_url:
-        st.error("Faltan datos de acceso.")
+        st.error("Datos incompletos.")
     else:
         try:
             video_id = video_url.split("v=")[-1].split("&")[0]
             yt = build("youtube", "v3", developerKey=api_key)
             
-            with st.status("🧠 Extrayendo oro de los comentarios...", expanded=True) as status:
+            with st.status("🧠 Procesando datos...", expanded=True) as status:
                 res = yt.commentThreads().list(part="snippet", videoId=video_id, maxResults=max_com).execute()
                 
                 data = []
-                # Palabras clave para monetizar
                 kw_dinero = ["precio", "cuanto", "comprar", "info", "costo", "venden", "adquirir", "link", "interesado"]
                 kw_duda = ["como", "por que", "puedes hacer", "tutorial", "duda", "ayuda", "explicar"]
 
@@ -103,46 +121,23 @@ if btn:
                     })
                 
                 df = pd.DataFrame(data)
-                status.update(label="✅ Auditoría Finalizada", state="complete")
+                status.update(label="✅ Análisis Listo", state="complete")
 
-            # --- DASHBOARD COMERCIAL ---
-            st.markdown("### 📊 Dashboard de Negocios")
+            # DASHBOARD
+            st.markdown("### 📊 Indicadores de Negocio")
             c1, c2, c3 = st.columns(3)
             
             leads_df = df[df['Es_Lead'] == True][['Usuario', 'Comentario']]
             dudas_df = df[df['Es_Duda'] == True][['Usuario', 'Comentario']]
 
-            c1.metric("Leads Encontrados", len(leads_df), "💰")
-            c2.metric("Sentimiento Positivo", f"{len(df[df['Sentimiento']=='POS'])}", "📈")
-            c3.metric("Dudas Críticas", len(dudas_df), "❓")
+            c1.metric("Leads 💰", len(leads_df))
+            c2.metric("Positivos 📈", len(df[df['Sentimiento']=='POS']))
+            c3.metric("Dudas ❓", len(dudas_df))
 
-            st.write("---")
-
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.subheader("🔥 Intenciones de Compra")
-                if not leads_df.empty:
-                    st.dataframe(leads_df, use_container_width=True, hide_index=True)
-                else:
-                    st.write("No se detectaron ventas directas.")
-
-            with col_b:
-                st.subheader("💡 Oportunidades de Contenido")
-                if not dudas_df.empty:
-                    st.dataframe(dudas_df, use_container_width=True, hide_index=True)
-                else:
-                    st.write("Sin dudas críticas detectadas.")
-
-            # --- DESCARGA ---
+            st.write("")
             xlsx = to_excel_pro(df, leads_df, dudas_df)
             st.download_button(
-                label="📥 DESCARGAR REPORTE ESTRATÉGICO PARA CLIENTE",
+                label="📥 DESCARGAR REPORTE PARA EL CLIENTE",
                 data=xlsx,
-                file_name=f"Business_Report_{video_id}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-
-        except Exception as e:
-            st.error(f"Error técnico: {e}")
-
+                file
 
