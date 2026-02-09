@@ -6,133 +6,128 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 
-# 1. CONFIGURACIÓN DE LA PÁGINA
-st.set_page_config(page_title="AI Audience Analyzer Pro", page_icon="🤖", layout="wide")
+# 1. CONFIGURACIÓN ESTÉTICA
+st.set_page_config(page_title="AI Audience Insights", page_icon="📈", layout="wide")
 
-# 2. CARGA DE MODELOS (Cache para que sea rápido)
+# CSS personalizado para mejorar el look
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #FF0000; color: white; }
+    .stMetric { background-color: #ffffff; padding: 15px; border-radius: 10px; box-shadow: 0px 2px 10px rgba(0,0,0,0.05); }
+    </style>
+    """, unsafe_allow_html=True)
+
 @st.cache_resource
 def load_analyzers():
-    sentiment_analyzer = create_analyzer(task="sentiment", lang="es")
-    hate_analyzer = create_analyzer(task="hate_speech", lang="es")
-    return sentiment_analyzer, hate_analyzer
+    return create_analyzer(task="sentiment", lang="es"), create_analyzer(task="hate_speech", lang="es")
 
 sentiment_proc, hate_proc = load_analyzers()
 
-# 3. FUNCIÓN PARA EL EXCEL PROFESIONAL
-def to_excel_professional(df):
+# 2. FUNCIÓN DE EXCEL CON PESTAÑAS Y COLORES
+def to_excel_advanced(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False, sheet_name='Análisis de Audiencia')
-        
-        workbook  = writer.book
-        worksheet = writer.sheets['Análisis de Audiencia']
+        # Definir dataframes por sentimiento
+        pos_df = df[df['Sentimiento'] == 'POS']
+        neg_df = df[df['Sentimiento'] == 'NEG']
+        neu_df = df[df['Sentimiento'] == 'NEU']
 
-        # Formatos
-        header_fmt = workbook.add_format({
-            'bold': True, 
-            'bg_color': '#1f77b4', 
-            'font_color': 'white', 
-            'border': 1
-        })
+        # Crear las pestañas
+        df.to_excel(writer, index=False, sheet_name='TODOS')
+        pos_df.to_excel(writer, index=False, sheet_name='POSITIVOS')
+        neg_df.to_excel(writer, index=False, sheet_name='NEGATIVOS')
+        neu_df.to_excel(writer, index=False, sheet_name='NEUTRALES')
+
+        workbook  = writer.book
         
-        # Formato condicional para sentimientos (Opcional)
-        # Aplicar formato a encabezados y ancho de columnas
+        # Formatos de colores
+        fmt_pos = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'}) # Verde
+        fmt_neg = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'}) # Rojo
+        fmt_neu = workbook.add_format({'bg_color': '#F2F2F2', 'font_color': '#333333'}) # Gris
+
+        # Aplicar formato condicional en la hoja "TODOS"
+        ws = writer.sheets['TODOS']
+        header_format = workbook.add_format({'bold': True, 'bg_color': '#333333', 'font_color': 'white'})
+        
         for col_num, value in enumerate(df.columns.values):
-            worksheet.write(0, col_num, value, header_fmt)
-            column_len = max(df[value].astype(str).map(len).max(), len(value)) + 2
-            worksheet.set_column(col_num, col_num, min(column_len, 50)) # Máximo 50 de ancho
+            ws.write(0, col_num, value, header_format)
+            ws.set_column(col_num, col_num, 30)
+
+        # La columna C es la de 'Sentimiento' (índice 2)
+        ws.conditional_format('C2:C5000', {'type': 'cell', 'criteria': '==', 'value': '"POS"', 'format': fmt_pos})
+        ws.conditional_format('C2:C5000', {'type': 'cell', 'criteria': '==', 'value': '"NEG"', 'format': fmt_neg})
+        ws.conditional_format('C2:C5000', {'type': 'cell', 'criteria': '==', 'value': '"NEU"', 'format': fmt_neu})
 
     return output.getvalue()
 
-# 4. INTERFAZ LATERAL (Configuración)
+# 3. CUERPO DE LA APP
+st.title("📈 AI Audience Sentiment Dashboard")
+st.subheader("Análisis estratégico de comunidades en YouTube")
+
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/1384/1384060.png", width=50)
-    st.title("Configuración")
-    
-    # Intenta obtener la API Key de los Secrets, si no, usa el campo de texto
-    api_key_default = st.secrets.get("YOUTUBE_API_KEY", "")
-    api_key = st.text_input("YouTube API Key", value=api_key_default, type="password")
-    
-    video_url = st.text_input("URL del Video de YouTube")
-    max_results = st.slider("Cantidad de comentarios", 50, 2000, 100)
-    
-    st.info("💡 Consejo: Usa el reporte de Excel para presentar resultados a tus clientes.")
+    st.header("⚙️ Panel de Control")
+    key_from_secret = st.secrets.get("YOUTUBE_API_KEY", "")
+    api_key = st.text_input("YouTube API Key", value=key_from_secret, type="password")
+    video_url = st.text_input("Enlace del Video")
+    max_com = st.slider("Volumen de muestra", 20, 500, 100)
+    st.divider()
+    st.markdown("### ¿Cómo monetizar?")
+    st.write("Usa el botón de descarga para entregar reportes PDF/Excel a tus clientes.")
 
-# 5. LÓGICA DE EXTRACCIÓN Y ANÁLISIS
-st.title("🤖 AI Audience Analyzer Pro")
-st.markdown("### Transforma comentarios en decisiones estratégicas")
-
-if st.button("🚀 Iniciar Análisis Profundo"):
+if st.button("🔍 ANALIZAR AHORA"):
     if not api_key or not video_url:
-        st.error("❌ Por favor, ingresa la API Key y la URL del video.")
+        st.warning("⚠️ Completa los datos en la barra lateral.")
     else:
         try:
-            # Extraer ID del video
             video_id = video_url.split("v=")[-1].split("&")[0]
+            yt = build("youtube", "v3", developerKey=api_key)
             
-            youtube = build("youtube", "v3", developerKey=api_key)
-            
-            with st.spinner("⏳ Extrayendo comentarios y analizando con IA..."):
-                # Llamada a YouTube API
-                request = youtube.commentThreads().list(
-                    part="snippet",
-                    videoId=video_id,
-                    maxResults=max_results,
-                    textFormat="plainText"
-                )
-                response = request.execute()
+            with st.spinner("🧠 Procesando sentimientos con Inteligencia Artificial..."):
+                res = yt.commentThreads().list(part="snippet", videoId=video_id, maxResults=max_com).execute()
+                
+                data = []
+                for item in res['items']:
+                    txt = item['snippet']['topLevelComment']['snippet']['textDisplay']
+                    user = item['snippet']['topLevelComment']['snippet']['authorDisplayName']
+                    s = sentiment_proc.predict(txt).output
+                    h = "Tóxico" if len(hate_proc.predict(txt).output) > 0 else "Limpio"
+                    data.append({"Usuario": user, "Comentario": txt, "Sentimiento": s, "Seguridad": h})
+                
+                df = pd.DataFrame(data)
 
-                comments = []
-                for item in response['items']:
-                    comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
-                    author = item['snippet']['topLevelComment']['snippet']['authorDisplayName']
-                    
-                    # Análisis de Sentimiento
-                    sent = sentiment_proc.predict(comment)
-                    # Análisis de Odio/Toxicidad
-                    hate = hate_proc.predict(comment)
-                    
-                    comments.append({
-                        "Autor": author,
-                        "Comentario": comment,
-                        "Sentimiento": sent.output,
-                        "Toxicidad": "Tóxico" if len(hate.output) > 0 else "Limpio"
-                    })
-
-                df = pd.DataFrame(comments)
-
-                # 6. VISUALIZACIÓN DE RESULTADOS
-                col1, col2 = st.columns(2)
-
-                with col1:
-                    st.subheader("📊 Distribución de Sentimientos")
-                    fig, ax = plt.subplots()
-                    sns.countplot(data=df, x='Sentimiento', palette='viridis', ax=ax)
-                    st.pyplot(fig)
-
-                with col2:
-                    st.subheader("🛡️ Brand Safety (Toxicidad)")
-                    tox_counts = df['Toxicidad'].value_counts()
-                    fig2, ax2 = plt.subplots()
-                    plt.pie(tox_counts, labels=tox_counts.index, autopct='%1.1f%%', colors=['#2ecc71', '#e74c3c'])
-                    st.pyplot(fig2)
+                # MÉTRICAS RÁPIDAS
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Total", len(df))
+                m2.metric("Positivos ✅", len(df[df['Sentimiento']=='POS']))
+                m3.metric("Negativos ❌", len(df[df['Sentimiento']=='NEG']))
+                m4.metric("Tóxicos ⚠️", len(df[df['Seguridad']=='Tóxico']))
 
                 st.divider()
 
-                # 7. DESCARGA DE REPORTE
-                excel_data = to_excel_professional(df)
+                # GRÁFICOS
+                c1, c2 = st.columns(2)
+                with c1:
+                    st.write("### Clima de Opinión")
+                    fig, ax = plt.subplots()
+                    df['Sentimiento'].value_counts().plot(kind='pie', autopct='%1.1f%%', colors=['#636EFA','#EF553B','#00CC96'], ax=ax)
+                    st.pyplot(fig)
+                
+                with c2:
+                    st.write("### Top Comentarios")
+                    st.dataframe(df[['Usuario', 'Comentario', 'Sentimiento']].head(10))
+
+                st.divider()
+
+                # DESCARGA
+                xlsx = to_excel_advanced(df)
                 st.download_button(
-                    label="📥 Descargar Reporte para Cliente (Excel)",
-                    data=excel_data,
-                    file_name=f"Analisis_Audiencia_{video_id}.xlsx",
+                    label="📥 DESCARGAR REPORTE ESTRATÉGICO (EXCEL)",
+                    data=xlsx,
+                    file_name=f"Reporte_IA_{video_id}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-                st.subheader("📝 Vista previa de los datos")
-                st.dataframe(df, use_container_width=True)
-
         except Exception as e:
-            st.error(f"⚠️ Ocurrió un error: {e}")
+            st.error(f"Error: {e}")
 
-else:
-    st.write("Esperando datos... ingresa la URL y presiona el botón.")
