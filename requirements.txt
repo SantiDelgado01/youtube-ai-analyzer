@@ -1,7 +1,5 @@
-streamlit
-pandas
 google-api-python-client
 pysentimiento
-seaborn
-matplotlib
+pandas
 xlsxwriter
+matplotlib
