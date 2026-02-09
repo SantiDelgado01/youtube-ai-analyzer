@@ -4,91 +4,134 @@ from googleapiclient.discovery import build
 from pysentimiento import create_analyzer
 import io
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="AI Audience Dashboard", page_icon="📈")
+# 1. CONFIGURACIÓN DE PÁGINA
+st.set_page_config(page_title="Audience Intelligence Pro", page_icon="💰", layout="centered")
 
-# 2. CSS "BLINDADO" (FUERZA BRUTA PARA LEGIBILIDAD)
+# 2. CSS DE ALTO IMPACTO Y LEGIBILIDAD TOTAL
 st.markdown("""
     <style>
-    /* Fondo General */
-    .stApp { background-color: #0e1117; }
+    .stApp { background: radial-gradient(circle at top, #1e2630 0%, #0e1117 100%); }
+    [data-testid="stSidebar"] { display: none; }
     
-    /* EL BOTÓN: ROJO CON TEXTO BLANCO CLARÍSIMO */
-    div.stButton > button {
-        width: 100% !important;
-        background-color: #FF0000 !important; /* Rojo puro */
-        color: #FFFFFF !important; /* BLANCO PURO */
-        font-size: 24px !important; /* Tamaño gigante */
-        font-weight: 900 !important; /* Máximo grosor */
-        height: 3em !important;
-        border-radius: 10px !important;
-        border: 2px solid #ffffff !important;
-        text-transform: uppercase !important;
-    }
-    
-    /* Asegurar que el texto no cambie de color al tocarlo */
-    div.stButton > button:hover, div.stButton > button:active, div.stButton > button:focus {
-        color: #FFFFFF !important;
-        background-color: #CC0000 !important;
-        border: 2px solid #ffffff !important;
+    h1 { color: white !important; text-align: center; font-weight: 800; }
+    p { color: #808495 !important; text-align: center; }
+
+    /* ESTILO DE INPUTS */
+    .stTextInput>div>div>input {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
     }
 
-    /* Forzar color de etiquetas de entrada */
-    label { color: white !important; font-weight: bold !important; }
+    /* EL BOTÓN: FONDO OSCURO, TEXTO BLANCO RADIANTE */
+    /* Usamos selectores más específicos para obligar a Streamlit a obedecer */
+    div.stButton > button {
+        width: 100% !important;
+        background-color: #0072ff !important; /* Azul sólido muy vivo */
+        color: #ffffff !important; /* BLANCO PURO */
+        font-size: 22px !important; /* Muy grande */
+        font-weight: 900 !important; /* Ultra negrita */
+        height: 3.5em !important;
+        border-radius: 12px !important;
+        border: 2px solid #ffffff !important; /* Borde blanco para resaltar */
+        text-transform: uppercase !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+
+    /* Asegurar que el texto siga siendo blanco al pasar el mouse */
+    div.stButton > button:hover {
+        background-color: #00c6ff !important;
+        color: #ffffff !important;
+        border: 2px solid #ffffff !important;
+    }
+    
+    /* Forzar el color del texto dentro del botón por si acaso */
+    div.stButton > button p {
+        color: #ffffff !important;
+        font-weight: 900 !important;
+    }
+
+    div[data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 15px !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 3. CARGA DE MODELO
+# 3. CARGA DE IA
 @st.cache_resource
-def load_ia():
+def load_analyzers():
     return create_analyzer(task="sentiment", lang="es")
 
-analyzer = load_ia()
+sentiment_proc = load_analyzers()
 
-# 4. INTERFAZ LIMPIA
-st.title("📊 AI Audience Sentiment")
-st.write("Analiza comentarios y detecta oportunidades de venta.")
+# 4. LÓGICA DE EXCEL
+def to_excel_pro(df, leads, dudas):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Análisis Completo')
+        leads.to_excel(writer, index=False, sheet_name='LEADS DE VENTA')
+        dudas.to_excel(writer, index=False, sheet_name='DUDAS DE AUDIENCIA')
+    return output.getvalue()
 
-with st.form("my_form"):
-    api_key = st.text_input("YouTube API Key", type="password")
-    video_url = st.text_input("URL del Video de YouTube")
-    count = st.slider("Cantidad de comentarios", 50, 500, 100)
+# 5. INTERFAZ
+st.markdown("<h1>💎 Audience Intelligence</h1>", unsafe_allow_html=True)
+st.markdown("<p>Escaneo de leads y salud de marca</p>", unsafe_allow_html=True)
+
+with st.container():
+    api_key = st.text_input("🔑 Google API Key", type="password")
+    video_url = st.text_input("🔗 Link del Video")
+    max_com = st.select_slider("⚡ Comentarios", options=[50, 100, 250, 500], value=100)
     
-    # El botón dentro de un formulario es más estable
-    submit = st.form_submit_button("ANALIZAR VIDEO AHORA")
+    st.write("")
+    # Este es el botón que DEBE leerse ahora
+    btn = st.button("ANALIZAR AHORA")
 
-# 5. LÓGICA
-if submit:
+if btn:
     if not api_key or not video_url:
-        st.warning("Por favor, completa los campos.")
+        st.error("Completa los campos.")
     else:
         try:
             video_id = video_url.split("v=")[-1].split("&")[0]
-            youtube = build("youtube", "v3", developerKey=api_key)
+            yt = build("youtube", "v3", developerKey=api_key)
             
-            with st.spinner("Procesando inteligencia..."):
-                request = youtube.commentThreads().list(
-                    part="snippet", videoId=video_id, maxResults=count
-                )
-                response = request.execute()
-                
-                results = []
-                for item in response['items']:
-                    text = item['snippet']['topLevelComment']['snippet']['textDisplay']
-                    sent = analyzer.predict(text).output
-                    results.append({"Comentario": text, "Sentimiento": sent})
-                
-                df = pd.DataFrame(results)
-                
-                # Visualización
-                st.success("¡Análisis completado!")
-                st.subheader("Resumen de Audiencia")
-                st.write(df.head())
-                
-                # Botón de descarga
-                csv = df.to_csv(index=False).encode('utf-8')
-                st.download_button("Descargar Reporte CSV", csv, "reporte.csv", "text/csv")
-                
+            with st.status("Analizando...", expanded=True) as status:
+                res = yt.commentThreads().list(part="snippet", videoId=video_id, maxResults=max_com).execute()
+                data = []
+                kw_dinero = ["precio", "cuanto", "comprar", "info", "costo", "interesado"]
+                kw_duda = ["como", "por que", "ayuda", "explicar"]
+
+                for item in res['items']:
+                    txt = item['snippet']['topLevelComment']['snippet']['textDisplay']
+                    user = item['snippet']['topLevelComment']['snippet']['authorDisplayName']
+                    s = sentiment_proc.predict(txt).output
+                    data.append({
+                        "Usuario": user, "Comentario": txt, "Sentimiento": s,
+                        "Es_Lead": any(k in txt.lower() for k in kw_dinero),
+                        "Es_Duda": any(k in txt.lower() for k in kw_duda)
+                    })
+                df = pd.DataFrame(data)
+                status.update(label="Completado", state="complete")
+
+            # Dashboard rápido
+            leads_df = df[df['Es_Lead'] == True][['Usuario', 'Comentario']]
+            dudas_df = df[df['Es_Duda'] == True][['Usuario', 'Comentario']]
+
+            c1, c2 = st.columns(2)
+            c1.metric("Leads 💰", len(leads_df))
+            c2.metric("Dudas ❓", len(dudas_df))
+
+            st.write("---")
+            xlsx_data = to_excel_pro(df, leads_df, dudas_df)
+            st.download_button(
+                label="📥 DESCARGAR REPORTE",
+                data=xlsx_data,
+                file_name="Reporte.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
         except Exception as e:
             st.error(f"Error: {e}")
+
 
