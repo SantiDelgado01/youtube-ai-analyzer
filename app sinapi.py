@@ -61,7 +61,7 @@ with st.container():
     video_url = st.text_input("🔗 Enlace del Video", placeholder="https://www.youtube.com/watch?v=...")
     max_com = st.select_slider("⚡ Cantidad de comentarios a auditar", options=[50, 100, 250, 500], value=100)
     st.write("")
-    btn = st.button("INICIAR AUDITORÍA ESTRATÉGICA")
+    btn = st.button("INICIAR ANÁLISIS")
 
 st.divider()
 
@@ -144,4 +144,5 @@ if btn:
 
         except Exception as e:
             st.error(f"Hubo un error al conectar con YouTube: {e}")
+
 
