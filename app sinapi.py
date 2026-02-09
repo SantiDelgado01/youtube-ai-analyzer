@@ -4,34 +4,43 @@ from googleapiclient.discovery import build
 from pysentimiento import create_analyzer
 import io
 
-# 1. CONFIGURACIÓN
-st.set_page_config(page_title="Audience Pro Business", page_icon="📊", layout="wide")
+# 1. CONFIGURACIÓN DE PÁGINA
+st.set_page_config(page_title="Audience Intelligence Pro", page_icon="💎", layout="centered")
 
-# 2. CSS DE ALTA VISIBILIDAD
+# 2. CSS PARA CENTRAR TODO Y MEJORAR EL BOTÓN
 st.markdown("""
     <style>
-    .stApp { background-color: #0e1117; }
-    h1, h2, h3 { color: white !important; }
+    .stApp { background: radial-gradient(circle at top, #1e2630 0%, #0e1117 100%); }
     
-    /* BOTÓN ANALIZAR - MÁXIMA LEGIBILIDAD */
+    /* Centrar títulos y textos */
+    .main .block-container { max-width: 800px; padding-top: 2rem; }
+    h1, h2, h3, p { text-align: center !important; color: white !important; }
+    
+    /* Botón Centrado y Legible */
     div.stButton > button {
+        display: block;
+        margin: 0 auto !important;
         width: 100% !important;
         background-color: #0072ff !important;
         color: #ffffff !important;
-        font-size: 20px !important;
-        font-weight: 800 !important;
+        font-size: 22px !important;
+        font-weight: 900 !important;
         height: 3.5em !important;
-        border-radius: 10px !important;
+        border-radius: 15px !important;
         border: 2px solid #ffffff !important;
+        text-transform: uppercase;
+    }
+
+    /* Estilo de métricas centradas */
+    [data-testid="stMetric"] {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 15px;
+        padding: 15px;
+        text-align: center;
     }
     
-    /* TARJETAS DE MÉTRICAS */
-    div[data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.05) !important;
-        border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        padding: 20px !important;
-        border-radius: 15px !important;
-    }
+    /* Centrar inputs */
+    .stTextInput, .stSelectSlider { text-align: center; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -42,88 +51,97 @@ def load_ia():
 
 analyzer = load_ia()
 
-# 4. INTERFAZ
-st.title("💎 Auditoría de Audiencia y Ventas")
-st.markdown("### Extrae insights, porcentajes y leads en segundos")
+# 4. INTERFAZ CENTRADA
+st.title("💎 Audience Intelligence")
+st.write("Analiza el sentimiento y detecta oportunidades de venta en el centro de tu comunidad.")
 
-with st.sidebar:
-    st.header("Configuración")
-    api_key = st.text_input("YouTube API Key", type="password")
-    video_url = st.text_input("URL del Video")
-    max_com = st.select_slider("Cantidad de comentarios", options=[50, 100, 200, 500], value=100)
+# Contenedor central de inputs
+with st.container():
+    api_key = st.text_input("🔑 Google API Key", type="password", help="Pega tu clave de Google Cloud")
+    video_url = st.text_input("🔗 Enlace del Video", placeholder="https://www.youtube.com/watch?v=...")
+    max_com = st.select_slider("⚡ Cantidad de comentarios a auditar", options=[50, 100, 250, 500], value=100)
+    st.write("")
+    btn = st.button("INICIAR AUDITORÍA ESTRATÉGICA")
 
-btn = st.button("GENERAR INFORME ESTRATÉGICO")
+st.divider()
 
 if btn:
     if not api_key or not video_url:
-        st.error("Faltan datos de acceso.")
+        st.error("⚠️ Por favor, rellena todos los campos para continuar.")
     else:
         try:
             video_id = video_url.split("v=")[-1].split("&")[0]
             yt = build("youtube", "v3", developerKey=api_key)
             
-            with st.status("Analizando sentimientos y buscando dinero...", expanded=True) as status:
+            with st.status("🧠 Procesando datos de audiencia...", expanded=True) as status:
                 res = yt.commentThreads().list(part="snippet", videoId=video_id, maxResults=max_com).execute()
                 
                 data = []
-                kw_precio = ["precio", "cuanto", "costo", "valor", "comprar", "venden", "info", "información"]
+                kw_precio = ["precio", "cuanto", "costo", "valor", "comprar", "venden", "info", "interesado"]
                 
                 for item in res['items']:
                     txt = item['snippet']['topLevelComment']['snippet']['textDisplay']
                     user = item['snippet']['topLevelComment']['snippet']['authorDisplayName']
-                    # Análisis de sentimiento
                     pred = analyzer.predict(txt)
-                    sent = pred.output # POS, NEU, NEG
-                    prob = pred.probas[sent] # Confianza de la IA para ordenar el Top 10
-                    
                     data.append({
                         "Usuario": user,
                         "Comentario": txt,
-                        "Sentimiento": sent,
-                        "Confianza": prob,
+                        "Sentimiento": pred.output,
+                        "Confianza": pred.probas[pred.output],
                         "Es_Precio": any(k in txt.lower() for k in kw_precio)
                     })
                 
                 df = pd.DataFrame(data)
-                status.update(label="✅ Análisis Completo", state="complete")
+                status.update(label="✅ Análisis finalizado con éxito", state="complete")
 
-            # --- SECCIÓN 1: PORCENTAJES ---
-            st.subheader("📈 Salud de la Comunidad")
-            c1, c2, c3, c4 = st.columns(4)
+            # --- RESULTADOS CENTRADOS ---
+            st.header("📊 Métricas de Salud")
             
             total = len(df)
-            pos_p = (len(df[df['Sentimiento']=='POS']) / total) * 100
-            neu_p = (len(df[df['Sentimiento']=='NEU']) / total) * 100
-            neg_p = (len(df[df['Sentimiento']=='NEG']) / total) * 100
+            pos_n = len(df[df['Sentimiento']=='POS'])
+            neu_n = len(df[df['Sentimiento']=='NEU'])
+            neg_n = len(df[df['Sentimiento']=='NEG'])
             
-            c1.metric("Positivos", f"{pos_p:.1f}%")
-            c2.metric("Neutros", f"{neu_p:.1f}%")
-            c3.metric("Negativos", f"{neg_p:.1f}%")
-            c4.metric("Interés de Compra", len(df[df['Es_Precio']==True]), "Leads")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Positivos", f"{(pos_n/total)*100:.1f}%")
+            c2.metric("Neutros", f"{(neu_n/total)*100:.1f}%")
+            c3.metric("Negativos", f"{(neg_n/total)*100:.1f}%")
 
-            # --- SECCIÓN 2: PRECIO ---
-            st.divider()
-            st.subheader("💰 Consultas de Precio / Leads")
+            # Barra de sentimiento (Visualización rápida)
+            st.write("**Balance de Sentimiento (Visual)**")
+            st.progress(pos_n / total)
+
+            # --- LEADS DE VENTA ---
+            st.header("💰 Leads Detectados (Precio/Info)")
             leads_df = df[df['Es_Precio'] == True][['Usuario', 'Comentario']]
             if not leads_df.empty:
-                st.table(leads_df)
+                st.dataframe(leads_df, use_container_width=True, hide_index=True)
             else:
-                st.info("No se detectaron preguntas de precio.")
+                st.info("No se detectaron intenciones de compra directas.")
 
-            # --- SECCIÓN 3: TOP 10 ---
-            st.divider()
-            col_pos, col_neg = st.columns(2)
+            # --- TOP 10 ---
+            st.header("🔝 Top 10 Comentarios Críticos")
             
-            with col_pos:
-                st.subheader("✅ Top 10 Comentarios Positivos")
+            tab1, tab2 = st.tabs(["✅ Los más Positivos", "❌ Los más Negativos"])
+            
+            with tab1:
                 top_pos = df[df['Sentimiento']=='POS'].sort_values(by="Confianza", ascending=False).head(10)
-                st.dataframe(top_pos[['Usuario', 'Comentario']], hide_index=True)
-
-            with col_neg:
-                st.subheader("❌ Top 10 Comentarios Negativos")
+                st.table(top_pos[['Usuario', 'Comentario']])
+            
+            with tab2:
                 top_neg = df[df['Sentimiento']=='NEG'].sort_values(by="Confianza", ascending=False).head(10)
-                st.dataframe(top_neg[['Usuario', 'Comentario']], hide_index=True)
+                st.table(top_neg[['Usuario', 'Comentario']])
+
+            # Exportar
+            st.write("---")
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 DESCARGAR REPORTE COMPLETO",
+                data=csv,
+                file_name=f"Analisis_{video_id}.csv",
+                mime="text/csv"
+            )
 
         except Exception as e:
-            st.error(f"Error técnico: {e}")
+            st.error(f"Hubo un error al conectar con YouTube: {e}")
 
