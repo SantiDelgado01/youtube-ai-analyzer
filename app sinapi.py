@@ -64,7 +64,7 @@ st.write("Analiza el sentimiento y detecta oportunidades de venta en el centro d
 with st.container():
     api_key = st.text_input("🔑 Google API Key", type="password", help="Pega tu clave de Google Cloud")
     video_url = st.text_input("🔗 Enlace del Video", placeholder="https://www.youtube.com/watch?v=...")
-    max_com = st.select_slider("⚡ Cantidad de comentarios a auditar", options=[50, 100, 250, 500], value=100)
+    max_com = st.select_slider("⚡ Cantidad de comentarios a analizar", options=[50, 100, 250, 500], value=100)
     st.write("")
     btn = st.button("INICIAR ANÁLISIS")
 
@@ -147,4 +147,5 @@ if btn:
 
         except Exception as e:
             st.error(f"Hubo un error al conectar con YouTube: {e}")
+
 
