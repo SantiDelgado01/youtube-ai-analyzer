@@ -158,4 +158,5 @@ if st.button("🚀 Iniciar Análisis"):
             st.table(df[df['seguridad_marca'] == 'ALERTA'][['autor', 'texto_original']].head(10))
                 
     else:
+
         st.warning("⚠️ Por favor ingresa una URL válida y tu API Key.")
