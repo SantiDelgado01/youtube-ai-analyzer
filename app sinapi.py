@@ -1,162 +1,138 @@
 import streamlit as st
 import pandas as pd
 from googleapiclient.discovery import build
-import re
+from pysentimiento import create_analyzer
 import seaborn as sns
 import matplotlib.pyplot as plt
-from pysentimiento import create_analyzer
 import io
 
-# =================================================================
-# 0. CONFIGURACIÓN DE LA PÁGINA Y MODELOS
-# =================================================================
-st.set_page_config(page_title="Santiago Delgado | AI Analyzer", layout="wide")
+# 1. CONFIGURACIÓN DE LA PÁGINA
+st.set_page_config(page_title="AI Audience Analyzer Pro", page_icon="🤖", layout="wide")
 
+# 2. CARGA DE MODELOS (Cache para que sea rápido)
 @st.cache_resource
-def cargar_modelos():
-    # Cargamos sentimiento y odio (Hate Speech) para el Brand Safety score
-    sentiment = create_analyzer(task="sentiment", lang="es")
-    hate = create_analyzer(task="hate_speech", lang="es")
-    return sentiment, hate
+def load_analyzers():
+    sentiment_analyzer = create_analyzer(task="sentiment", lang="es")
+    hate_analyzer = create_analyzer(task="hate_speech", lang="es")
+    return sentiment_analyzer, hate_analyzer
 
-sentiment_analyzer, hate_analyzer = cargar_modelos()
+sentiment_proc, hate_proc = load_analyzers()
 
-# =================================================================
-# 1. FUNCIONES DE APOYO (LÓGICA)
-# =================================================================
+# 3. FUNCIÓN PARA EL EXCEL PROFESIONAL
+def to_excel_professional(df):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name='Análisis de Audiencia')
+        
+        workbook  = writer.book
+        worksheet = writer.sheets['Análisis de Audiencia']
 
-def extraer_video_id(url):
-    regex = r"(?:v=|\/)([0-9A-Za-z_-]{11}).*"
-    match = re.search(regex, url)
-    return match.group(1) if match else None
+        # Formatos
+        header_fmt = workbook.add_format({
+            'bold': True, 
+            'bg_color': '#1f77b4', 
+            'font_color': 'white', 
+            'border': 1
+        })
+        
+        # Formato condicional para sentimientos (Opcional)
+        # Aplicar formato a encabezados y ancho de columnas
+        for col_num, value in enumerate(df.columns.values):
+            worksheet.write(0, col_num, value, header_fmt)
+            column_len = max(df[value].astype(str).map(len).max(), len(value)) + 2
+            worksheet.set_column(col_num, col_num, min(column_len, 50)) # Máximo 50 de ancho
 
-def preprocesar_texto(texto):
-    texto = re.sub(r'http\S+|www\S+|https\S+', '', texto, flags=re.MULTILINE)
-    texto = texto.lower().replace('&quot;', ' ').replace('&#39;', ' ')
-    texto = re.sub(r'<.*?>', '', texto)
-    return texto.strip()
+    return output.getvalue()
 
-def obtener_comentarios(api_key, video_id, max_comentarios):
-    youtube = build('youtube', 'v3', developerKey=api_key)
-    comentarios = []
-    next_page_token = None
-    
-    while len(comentarios) < max_comentarios:
-        try:
-            request = youtube.commentThreads().list(
-                part="snippet", videoId=video_id, maxResults=100, pageToken=next_page_token
-            )
-            response = request.execute()
-            
-            for item in response.get('items', []):
-                comment = item['snippet']['topLevelComment']['snippet']
-                comentarios.append({
-                    'autor': comment['authorDisplayName'],
-                    'texto_original': comment['textDisplay'],
-                    'texto_procesado': preprocesar_texto(comment['textDisplay'])
-                })
-                if len(comentarios) >= max_comentarios: break
-            
-            next_page_token = response.get('nextPageToken')
-            if not next_page_token: break
-        except Exception as e:
-            st.error(f"Error de API: {e}")
-            break
-    return pd.DataFrame(comentarios)
-
-# =================================================================
-# 2. INTERFAZ DE USUARIO (STREAMLIT)
-# =================================================================
-
-st.title("🤖 AI Audience Analyzer Pro")
-st.markdown("Analiza el sentimiento y la seguridad de marca de tus videos de YouTube.")
-
+# 4. INTERFAZ LATERAL (Configuración)
 with st.sidebar:
-    st.header("⚙️ Configuración")
-    api_key = st.text_input("YouTube API Key", value="", type="password")
-    limite = st.slider("Límite de comentarios", 100, 5000, 1000)
-    st.divider()
-    st.info("Desarrollado por Santiago Delgado")
-
-url_input = st.text_input("Pega la URL de YouTube aquí (Video o Short):", placeholder="https://www.youtube.com/watch?v=...")
-
-if st.button("🚀 Iniciar Análisis"):
-    video_id = extraer_video_id(url_input)
+    st.image("https://cdn-icons-png.flaticon.com/512/1384/1384060.png", width=50)
+    st.title("Configuración")
     
-    if video_id and api_key:
-        # FASE 1: EXTRACCIÓN
-        with st.status("📥 Extrayendo comentarios...", expanded=True) as status:
-            df = obtener_comentarios(api_key, video_id, limite)
-            if df.empty:
-                st.error("No se encontraron comentarios o el ID es inválido.")
-                st.stop()
-            status.update(label=f"✅ {len(df)} comentarios obtenidos.", state="complete")
-        
-        # FASE 2: ANÁLISIS IA (SENTIMIENTO + ODIO)
-        st.subheader("🧠 Procesando con BERT (Español)")
-        bar_progreso = st.progress(0)
-        sentimientos = []
-        toxicidad = []
-        
-        for i, texto in enumerate(df['texto_procesado']):
-            # Sentimiento
-            res_sent = sentiment_analyzer.predict(texto)
-            map_sent = {"POS": "POSITIVO", "NEG": "NEGATIVO", "NEU": "NEUTRO"}
-            sentimientos.append(map_sent.get(res_sent.output, "NEUTRO"))
-            
-            # Odio / Agresividad
-            res_hate = hate_analyzer.predict(texto)
-            toxicidad.append("ALERTA" if res_hate.output != [] else "SEGURO")
-            
-            bar_progreso.progress((i + 1) / len(df))
-        
-        df['sentimiento'] = sentimientos
-        df['seguridad_marca'] = toxicidad
-        
-        # FASE 3: VISUALIZACIÓN DE RESULTADOS
-        st.divider()
-        col1, col2, col3 = st.columns(3)
-        
-        conteo = df['sentimiento'].value_counts(normalize=True) * 100
-        total_toxicos = (df['seguridad_marca'] == "ALERTA").sum()
+    # Intenta obtener la API Key de los Secrets, si no, usa el campo de texto
+    api_key_default = st.secrets.get("YOUTUBE_API_KEY", "")
+    api_key = st.text_input("YouTube API Key", value=api_key_default, type="password")
+    
+    video_url = st.text_input("URL del Video de YouTube")
+    max_results = st.slider("Cantidad de comentarios", 50, 2000, 100)
+    
+    st.info("💡 Consejo: Usa el reporte de Excel para presentar resultados a tus clientes.")
 
-        with col1:
-            st.metric("Total Analizado", f"{len(df)}")
-            st.metric("Nivel de Toxicidad", f"{total_toxicos}", delta="Críticos", delta_color="inverse")
-        
-        with col2:
-            st.write("**Distribución de Sentimiento**")
-            st.write(f"🟢 Positivos: {conteo.get('POSITIVO', 0):.1f}%")
-            st.write(f"🔴 Negativos: {conteo.get('NEGATIVO', 0):.1f}%")
-            st.write(f"🟡 Neutros: {conteo.get('NEUTRO', 0):.1f}%")
+# 5. LÓGICA DE EXTRACCIÓN Y ANÁLISIS
+st.title("🤖 AI Audience Analyzer Pro")
+st.markdown("### Transforma comentarios en decisiones estratégicas")
 
-        with col3:
-            fig, ax = plt.subplots(figsize=(4, 3))
-            sns.countplot(data=df, x='sentimiento', palette={'POSITIVO': '#2ecc71', 'NEUTRO': '#95a5a6', 'NEGATIVO': '#e74c3c'}, ax=ax)
-            plt.xticks(fontsize=8)
-            plt.yticks(fontsize=8)
-            st.pyplot(fig)
-
-        # FASE 4: EXPORTACIÓN
-        buffer = io.BytesIO()
-        with pd.ExcelWriter(buffer, engine='xlsxwriter') as writer:
-            df.to_excel(writer, index=False, sheet_name='Analisis')
-        
-        st.download_button(
-            label="📥 Descargar Reporte en Excel",
-            data=buffer.getvalue(),
-            file_name=f"Analisis_IA_{video_id}.xlsx",
-            mime="application/vnd.ms-excel"
-        )
-
-        # FASE 5: TABLAS DETALLADAS
-        st.divider()
-        t1, t2 = st.tabs(["⭐ Mejores Comentarios", "🚩 Alertas de Marca"])
-        with t1:
-            st.table(df[df['sentimiento'] == 'POSITIVO'][['autor', 'texto_original']].head(10))
-        with t2:
-            st.table(df[df['seguridad_marca'] == 'ALERTA'][['autor', 'texto_original']].head(10))
-                
+if st.button("🚀 Iniciar Análisis Profundo"):
+    if not api_key or not video_url:
+        st.error("❌ Por favor, ingresa la API Key y la URL del video.")
     else:
+        try:
+            # Extraer ID del video
+            video_id = video_url.split("v=")[-1].split("&")[0]
+            
+            youtube = build("youtube", "v3", developerKey=api_key)
+            
+            with st.spinner("⏳ Extrayendo comentarios y analizando con IA..."):
+                # Llamada a YouTube API
+                request = youtube.commentThreads().list(
+                    part="snippet",
+                    videoId=video_id,
+                    maxResults=max_results,
+                    textFormat="plainText"
+                )
+                response = request.execute()
 
-        st.warning("⚠️ Por favor ingresa una URL válida y tu API Key.")
+                comments = []
+                for item in response['items']:
+                    comment = item['snippet']['topLevelComment']['snippet']['textDisplay']
+                    author = item['snippet']['topLevelComment']['snippet']['authorDisplayName']
+                    
+                    # Análisis de Sentimiento
+                    sent = sentiment_proc.predict(comment)
+                    # Análisis de Odio/Toxicidad
+                    hate = hate_proc.predict(comment)
+                    
+                    comments.append({
+                        "Autor": author,
+                        "Comentario": comment,
+                        "Sentimiento": sent.output,
+                        "Toxicidad": "Tóxico" if len(hate.output) > 0 else "Limpio"
+                    })
+
+                df = pd.DataFrame(comments)
+
+                # 6. VISUALIZACIÓN DE RESULTADOS
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    st.subheader("📊 Distribución de Sentimientos")
+                    fig, ax = plt.subplots()
+                    sns.countplot(data=df, x='Sentimiento', palette='viridis', ax=ax)
+                    st.pyplot(fig)
+
+                with col2:
+                    st.subheader("🛡️ Brand Safety (Toxicidad)")
+                    tox_counts = df['Toxicidad'].value_counts()
+                    fig2, ax2 = plt.subplots()
+                    plt.pie(tox_counts, labels=tox_counts.index, autopct='%1.1f%%', colors=['#2ecc71', '#e74c3c'])
+                    st.pyplot(fig2)
+
+                st.divider()
+
+                # 7. DESCARGA DE REPORTE
+                excel_data = to_excel_professional(df)
+                st.download_button(
+                    label="📥 Descargar Reporte para Cliente (Excel)",
+                    data=excel_data,
+                    file_name=f"Analisis_Audiencia_{video_id}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+                st.subheader("📝 Vista previa de los datos")
+                st.dataframe(df, use_container_width=True)
+
+        except Exception as e:
+            st.error(f"⚠️ Ocurrió un error: {e}")
+
+else:
+    st.write("Esperando datos... ingresa la URL y presiona el botón.")
