@@ -73,7 +73,7 @@ st.markdown("Analiza el sentimiento y la seguridad de marca de tus videos de You
 
 with st.sidebar:
     st.header("⚙️ Configuración")
-    api_key = st.text_input("YouTube API Key", value="yourapikey", type="password")
+    api_key = st.text_input("YouTube API Key", value="", type="password")
     limite = st.slider("Límite de comentarios", 100, 5000, 1000)
     st.divider()
     st.info("Desarrollado por Santiago Delgado")
