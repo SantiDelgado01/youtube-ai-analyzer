@@ -5,36 +5,33 @@ from pysentimiento import create_analyzer
 import matplotlib.pyplot as plt
 import io
 
-# 1. CONFIGURACIÓN DE PÁGINA PROFESIONAL
-st.set_page_config(page_title="Audience AI Pro", page_icon="📊", layout="centered")
+# 1. CONFIGURACIÓN DE PÁGINA
+st.set_page_config(page_title="Audience Intelligence Pro", page_icon="📊", layout="centered")
 
-# 2. CSS AVANZADO (DISEÑO PREMIUM)
+# 2. CSS PARA DISEÑO PREMIUM (FONDO, BOTONES Y TARJETAS)
 st.markdown("""
     <style>
-    /* Fondo con degradado profesional */
+    /* Fondo con degradado y ocultar sidebar */
     .stApp {
         background: radial-gradient(circle at top, #1e2630 0%, #0e1117 100%);
     }
-    
-    /* Ocultar sidebar y menús para limpieza total */
     [data-testid="stSidebar"] { display: none; }
     
-    /* Contenedor principal de inputs */
-    .stTextInput>div>div>input, .stSlider>div {
+    /* Inputs y Sliders modernos */
+    .stTextInput>div>div>input {
         background-color: rgba(255, 255, 255, 0.05) !important;
         color: white !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         border-radius: 12px !important;
     }
-
-    /* Títulos con sombra y glow */
+    
+    /* Títulos */
     h1 {
         color: white !important;
         text-shadow: 0px 0px 15px rgba(255, 255, 255, 0.2);
-        font-family: 'Inter', sans-serif;
     }
 
-    /* Botón Moderno con Efecto Hover */
+    /* Botón con degradado rojo */
     .stButton>button {
         width: 100%;
         border-radius: 15px !important;
@@ -43,35 +40,35 @@ st.markdown("""
         color: white !important;
         font-weight: bold !important;
         border: none !important;
-        transition: all 0.3s ease-in-out;
-        box-shadow: 0px 4px 15px rgba(255, 75, 75, 0.3);
+        transition: 0.3s;
     }
     .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0px 6px 20px rgba(255, 75, 75, 0.5);
+        transform: scale(1.02);
+        box-shadow: 0px 5px 20px rgba(255, 75, 75, 0.4);
     }
 
-    /* Tarjetas de Métricas (Glassmorphism) */
+    /* Tarjetas de resultados (Glassmorphism) */
     div[data-testid="stMetric"] {
         background: rgba(255, 255, 255, 0.03) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
         padding: 20px !important;
         border-radius: 20px !important;
-        backdrop-filter: blur(10px);
     }
     </style>
     """, unsafe_allow_html=True)
 
+# 3. CARGA DE MODELOS DE IA
 @st.cache_resource
 def load_analyzers():
     return create_analyzer(task="sentiment", lang="es"), create_analyzer(task="hate_speech", lang="es")
 
 sentiment_proc, hate_proc = load_analyzers()
 
-# --- FUNCIÓN EXCEL (Colores y Pestañas) ---
+# 4. FUNCIÓN EXCEL AVANZADA (PESTAÑAS Y COLORES)
 def to_excel_advanced(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        # Creamos las 4 pestañas
         df.to_excel(writer, index=False, sheet_name='TODOS')
         df[df['Sentimiento'] == 'POS'].to_excel(writer, index=False, sheet_name='POSITIVOS')
         df[df['Sentimiento'] == 'NEG'].to_excel(writer, index=False, sheet_name='NEGATIVOS')
@@ -80,79 +77,87 @@ def to_excel_advanced(df):
         workbook = writer.book
         ws = writer.sheets['TODOS']
         
-        # Estilos de celdas
-        fmt_pos = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
-        fmt_neg = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
-        fmt_neu = workbook.add_format({'bg_color': '#F2F2F2', 'font_color': '#333333'})
+        # Formatos de color para el Excel
+        fmt_pos = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'}) # Verde
+        fmt_neg = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'}) # Rojo
+        fmt_neu = workbook.add_format({'bg_color': '#F2F2F2', 'font_color': '#333333'}) # Gris
 
+        # Aplicar colores automáticos en la columna C (Sentimiento)
         ws.conditional_format('C2:C5000', {'type': 'cell', 'criteria': '==', 'value': '"POS"', 'format': fmt_pos})
         ws.conditional_format('C2:C5000', {'type': 'cell', 'criteria': '==', 'value': '"NEG"', 'format': fmt_neg})
         ws.conditional_format('C2:C5000', {'type': 'cell', 'criteria': '==', 'value': '"NEU"', 'format': fmt_neu})
+        
     return output.getvalue()
 
-# --- INTERFAZ CENTRALIZADA ---
-st.markdown("<h1 style='text-align: center;'>💎 Audience Intelligence</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; opacity: 0.7;'>Analítica avanzada con IA para Creadores y Marcas</p>", unsafe_allow_html=True)
+# 5. INTERFAZ DE USUARIO (ENCABEZADO CON TU LOGO)
+col_l1, col_l2, col_l3 = st.columns([1, 0.8, 1])
+with col_l2:
+    try:
+        st.image("logo.png", use_container_width=True)
+    except:
+        st.write("📌 (Sube logo.png a GitHub)")
 
-st.write("") # Espaciador
+st.markdown("<h1 style='text-align: center;'>Audience Intelligence</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center; opacity: 0.7;'>Auditoría de sentimiento y salud de comunidad con IA</p>", unsafe_allow_html=True)
 
-# Sección de entradas
+st.write("---")
+
+# 6. FORMULARIO DE DATOS
 with st.container():
-    key_secret = st.secrets.get("YOUTUBE_API_KEY", "")
-    api_key = st.text_input("🔑 Google API Key", value=key_secret, type="password")
-    video_url = st.text_input("🔗 URL del Video", placeholder="https://www.youtube.com/watch?v=...")
-    max_com = st.select_slider("⚡ Precisión del Análisis (Comentarios)", options=[50, 100, 250, 500], value=100)
+    api_key_sec = st.secrets.get("YOUTUBE_API_KEY", "")
+    api_key = st.text_input("🔑 Google API Key", value=api_key_sec, type="password")
+    video_url = st.text_input("🔗 URL del Video de YouTube", placeholder="Pega el enlace aquí...")
+    max_com = st.select_slider("⚡ Cantidad de comentarios a procesar", options=[50, 100, 250, 500], value=100)
     
     st.write("")
-    btn_analizar = st.button("INICIAR AUDITORÍA IA")
+    analizar = st.button("🚀 INICIAR ANÁLISIS")
 
-st.divider()
-
-# --- LÓGICA DE PROCESAMIENTO ---
-if btn_analizar:
+# 7. PROCESAMIENTO Y RESULTADOS
+if analizar:
     if not api_key or not video_url:
-        st.error("⚠️ Por favor completa los campos requeridos.")
+        st.error("Por favor, ingresa la API Key y la URL del video.")
     else:
         try:
+            # Extraer ID del video
             video_id = video_url.split("v=")[-1].split("&")[0]
             yt = build("youtube", "v3", developerKey=api_key)
             
-            with st.status("🔍 Escaneando audiencia...", expanded=True) as status:
+            with st.spinner("🧠 Nuestra IA está analizando los comentarios..."):
                 res = yt.commentThreads().list(part="snippet", videoId=video_id, maxResults=max_com).execute()
+                
                 data = []
                 for item in res['items']:
                     txt = item['snippet']['topLevelComment']['snippet']['textDisplay']
+                    user = item['snippet']['topLevelComment']['snippet']['authorDisplayName']
                     s = sentiment_proc.predict(txt).output
-                    data.append({
-                        "Usuario": item['snippet']['topLevelComment']['snippet']['authorDisplayName'], 
-                        "Comentario": txt, 
-                        "Sentimiento": s
-                    })
+                    data.append({"Usuario": user, "Comentario": txt, "Sentimiento": s})
+                
                 df = pd.DataFrame(data)
-                status.update(label="✅ Análisis Completado", state="complete", expanded=False)
 
-            # Dashboard de Resultados
-            st.markdown("### 📊 Salud de la Comunidad")
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Positivos ✅", len(df[df['Sentimiento']=='POS']))
-            m2.metric("Neutrales ⚪", len(df[df['Sentimiento']=='NEU']))
-            m3.metric("Negativos ❌", len(df[df['Sentimiento']=='NEG']))
+                # Visualización de Resultados
+                st.write("### 📈 Dashboard de Sentimiento")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Positivos", len(df[df['Sentimiento']=='POS']), "✅")
+                m2.metric("Neutrales", len(df[df['Sentimiento']=='NEU']), "⚪")
+                m3.metric("Negativos", len(df[df['Sentimiento']=='NEG']), "❌")
 
-            # Descarga Premium
-            st.write("")
-            xlsx_data = to_excel_advanced(df)
-            st.download_button(
-                label="📥 DESCARGAR REPORTE PROFESIONAL (EXCEL)",
-                data=xlsx_data,
-                file_name=f"Informe_IA_{video_id}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
-            
-            with st.expander("Ver desglose de datos"):
-                st.dataframe(df, use_container_width=True)
+                st.write("---")
+                
+                # Botón de Descarga
+                xlsx = to_excel_advanced(df)
+                st.download_button(
+                    label="📥 DESCARGAR REPORTE EXCEL PROFESIONAL",
+                    data=xlsx,
+                    file_name=f"Reporte_IA_{video_id}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+                # Tabla de vista previa
+                with st.expander("📝 Ver todos los comentarios analizados"):
+                    st.dataframe(df, use_container_width=True)
 
         except Exception as e:
-            st.error(f"Error de conexión: {e}")
+            st.error(f"Ocurrió un error: {e}")
 
 
 
