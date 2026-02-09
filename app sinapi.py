@@ -6,44 +6,43 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import io
 
-# 1. CONFIGURACIÓN VISUAL AVANZADA
-st.set_page_config(page_title="AI Audience Insights", page_icon="📈", layout="wide")
+# 1. CONFIGURACIÓN VISUAL
+st.set_page_config(page_title="AI Audience Insights", page_icon="📈", layout="centered")
 
-# CSS para centrar y modernizar
+# CSS para forzar el look moderno y ocultar menús innecesarios
 st.markdown("""
     <style>
-    /* Fondo general */
-    .main { background-color: #0e1117; }
+    /* Fondo y texto */
+    .stApp { background-color: #0e1117; }
+    h1, h2, h3, p { color: white !important; text-align: center; }
     
-    /* Estilo del contenedor central */
-    .stTextInput, .stSlider {
-        background-color: #1e2129;
-        border-radius: 10px;
-        padding: 5px;
+    /* Estilo del contenedor de entrada */
+    .stTextInput>div>div>input {
+        background-color: #1e2129 !important;
+        color: white !important;
+        border: 1px solid #3e424b !important;
+        border-radius: 10px !important;
     }
     
-    /* Botón principal */
+    /* Botón principal estilo 'YouTube Premium' */
     .stButton>button {
         width: 100%;
-        border-radius: 20px;
+        border-radius: 25px !important;
         height: 3.5em;
-        background: linear-gradient(45deg, #FF0000, #ff4b4b);
-        color: white;
-        font-weight: bold;
-        border: none;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        transform: scale(1.02);
-        box-shadow: 0px 5px 15px rgba(255, 0, 0, 0.4);
+        background: linear-gradient(90deg, #FF0000 0%, #CC0000 100%) !important;
+        color: white !important;
+        font-weight: bold !important;
+        border: none !important;
+        margin-top: 20px;
     }
     
     /* Métricas */
     [data-testid="stMetric"] {
         background-color: #1e2129;
         border: 1px solid #31333f;
-        padding: 15px;
+        padding: 20px;
         border-radius: 15px;
+        text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -54,7 +53,7 @@ def load_analyzers():
 
 sentiment_proc, hate_proc = load_analyzers()
 
-# --- FUNCIÓN EXCEL (Pestañas y Colores) ---
+# --- FUNCIÓN EXCEL AVANZADA (Pestañas y Colores) ---
 def to_excel_advanced(df):
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
@@ -66,7 +65,7 @@ def to_excel_advanced(df):
         workbook  = writer.book
         ws = writer.sheets['TODOS']
         
-        # Formatos
+        # Formatos profesionales
         fmt_pos = workbook.add_format({'bg_color': '#C6EFCE', 'font_color': '#006100'})
         fmt_neg = workbook.add_format({'bg_color': '#FFC7CE', 'font_color': '#9C0006'})
         fmt_neu = workbook.add_format({'bg_color': '#F2F2F2', 'font_color': '#333333'})
@@ -82,45 +81,41 @@ def to_excel_advanced(df):
 
     return output.getvalue()
 
-# --- INTERFAZ CENTRALIZADA ---
-# Título centrado
-st.markdown("<h1 style='text-align: center;'>📈 AI Audience Sentiment Dashboard</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #808495;'>Analiza la salud de cualquier comunidad de YouTube en segundos</p>", unsafe_allow_html=True)
+# --- INTERFAZ CENTRAL ---
+st.image("https://cdn-icons-png.flaticon.com/512/1384/1384060.png", width=80) # Logo central
+st.title("AI Audience Insights")
+st.markdown("Analiza la percepción de tu audiencia con Inteligencia Artificial")
+
+# Espaciador
+st.write("")
+
+# Formulario Central
+with st.container():
+    api_key_sec = st.secrets.get("YOUTUBE_API_KEY", "")
+    api_key = st.text_input("🔑 YouTube API Key", value=api_key_sec, type="password")
+    video_url = st.text_input("🔗 Enlace del Video", placeholder="Pega el link aquí...")
+    
+    col_s1, col_s2 = st.columns(2)
+    with col_s1:
+        max_com = st.select_slider("Muestra de comentarios", options=[50, 100, 250, 500], value=100)
+    with col_s2:
+        st.write("") # Espacio estético
+        st.write("Selecciona el volumen de datos a procesar")
+
+    analizar = st.button("ANALIZAR AUDIENCIA")
 
 st.write("---")
 
-# Contenedor central de inputs
-col_a, col_b, col_c = st.columns([1, 2, 1])
-
-with col_b:
-    with st.container():
-        st.markdown("### 🛠️ Configura tu Análisis")
-        
-        # API Key (buscando en secrets primero)
-        secret_key = st.secrets.get("YOUTUBE_API_KEY", "")
-        api_key = st.text_input("YouTube API Key", value=secret_key, type="password", help="Pega aquí tu clave de Google Cloud Console")
-        
-        # URL del video
-        video_url = st.text_input("Enlace del Video de YouTube", placeholder="https://www.youtube.com/watch?v=...")
-        
-        # Cantidad de comentarios
-        max_com = st.select_slider("Cantidad de comentarios a procesar", options=[50, 100, 200, 500], value=100)
-        
-        # Botón grande
-        analizar = st.button("🚀 INICIAR ANÁLISIS ESTRATÉGICO")
-
-st.write("---")
-
-# --- PROCESAMIENTO ---
+# --- PROCESAMIENTO Y RESULTADOS ---
 if analizar:
     if not api_key or not video_url:
-        st.error("❗ Falta información: Ingresa la API Key y el enlace del video.")
+        st.error("Debes completar la API Key y la URL.")
     else:
         try:
             video_id = video_url.split("v=")[-1].split("&")[0]
             yt = build("youtube", "v3", developerKey=api_key)
             
-            with st.spinner("🧠 Nuestra IA está leyendo los comentarios..."):
+            with st.spinner("🧠 Nuestra IA está analizando cada comentario..."):
                 res = yt.commentThreads().list(part="snippet", videoId=video_id, maxResults=max_com).execute()
                 
                 data = []
@@ -133,37 +128,36 @@ if analizar:
                 
                 df = pd.DataFrame(data)
 
-                # DASHBOARD DE RESULTADOS
-                m1, m2, m3, m4 = st.columns(4)
-                m1.metric("Analizados", len(df))
-                m2.metric("Positivos", len(df[df['Sentimiento']=='POS']), delta="Saludable")
-                m3.metric("Negativos", len(df[df['Sentimiento']=='NEG']), delta="-Críticas", delta_color="inverse")
-                m4.metric("Tóxicos", len(df[df['Seguridad']=='Tóxico']), delta="Alertas", delta_color="inverse")
+                # DASHBOARD DE RESULTADOS (Sección moderna)
+                st.markdown("### 📊 Resultado del Análisis")
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Positivos", len(df[df['Sentimiento']=='POS']))
+                m2.metric("Neutrales", len(df[df['Sentimiento']=='NEU']))
+                m3.metric("Negativos", len(df[df['Sentimiento']=='NEG']))
 
-                c1, c2 = st.columns([1, 1.5])
-                with c1:
-                    st.write("#### 📊 Distribución de Sentimiento")
-                    # Usamos colores directos para que combine con el diseño
-                    colors = ['#00CC96', '#EF553B', '#636EFA']
-                    fig, ax = plt.subplots(facecolor='#0e1117')
-                    df['Sentimiento'].value_counts().plot(kind='pie', autopct='%1.1f%%', colors=colors, ax=ax, textprops={'color':"w"})
-                    st.pyplot(fig)
+                # Gráfico circular moderno
+                st.write("")
+                fig, ax = plt.subplots(figsize=(6, 4), facecolor='#0e1117')
+                colors = ['#2ecc71', '#95a5a6', '#e74c3c']
+                df['Sentimiento'].value_counts().plot(kind='pie', autopct='%1.1f%%', colors=colors, ax=ax, textprops={'color':"w", 'weight':'bold'})
+                plt.ylabel("")
+                st.pyplot(fig)
+
+                # Botón de descarga destacado
+                st.write("---")
+                st.subheader("📦 Tu reporte está listo")
+                xlsx = to_excel_advanced(df)
+                st.download_button(
+                    label="📥 DESCARGAR REPORTE EXCEL (CON PESTAÑAS)",
+                    data=xlsx,
+                    file_name=f"Analisis_IA_{video_id}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
                 
-                with c2:
-                    st.write("#### 📥 Entregables")
-                    xlsx = to_excel_advanced(df)
-                    st.download_button(
-                        label="📦 DESCARGAR REPORTE PARA CLIENTE (EXCEL)",
-                        data=xlsx,
-                        file_name=f"Informe_IA_{video_id}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                    )
-                    st.info("El reporte incluye pestañas automáticas para Positivos, Negativos y Neutrales.")
-                    
-                    st.write("#### 📝 Vista Previa")
-                    st.dataframe(df.head(10), use_container_width=True)
+                st.write("#### 📝 Vista previa de comentarios")
+                st.dataframe(df.head(10), use_container_width=True)
 
         except Exception as e:
-            st.error(f"Se produjo un error técnico: {e}")
+            st.error(f"Error: {e}")
 
 
